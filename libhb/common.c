@@ -265,8 +265,6 @@ static int hb_video_encoder_is_enabled(int encoder)
         case HB_VCODEC_FFMPEG_MPEG2:
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
-        case HB_VCODEC_NVENC_H264:
-        case HB_VCODEC_NVENC_H265:
             return 1;
 
 #ifdef USE_X265
@@ -289,6 +287,11 @@ static int hb_video_encoder_is_enabled(int encoder)
             return (api != NULL);
         }
 
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
+        {
+            return hb_av_encoder_present(encoder);
+        }
         default:
             return 0;
     }
@@ -1292,6 +1295,8 @@ void hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
          */
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X265_8BIT:
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
             *direction   = 1;
             *granularity = 0.1;
             *low         = 0.;
@@ -1364,6 +1369,8 @@ const char* hb_video_quality_get_name(uint32_t codec)
 
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
             return "CQ";
 
         default:
@@ -1450,6 +1457,10 @@ const char* const* hb_video_encoder_get_profiles(int encoder)
         return hb_qsv_profile_get_names(encoder);
     }
 #endif
+    if (encoder & HB_VCODEC_NVENC_MASK)
+    {
+        return hb_av_profile_get_names(encoder);
+    }
 
     switch (encoder)
     {
@@ -1480,6 +1491,10 @@ const char* const* hb_video_encoder_get_levels(int encoder)
         return hb_qsv_level_get_names(encoder);
     }
 #endif
+    if (encoder & HB_VCODEC_NVENC_MASK)
+    {
+        return hb_av_level_get_names(encoder);
+    }
 
     switch (encoder)
     {

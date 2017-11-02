@@ -232,9 +232,13 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
         case HB_VCODEC_QSV_H265_10BIT:
             w = hb_get_work(h, WORK_ENCQSV);
             break;
-        case HB_VCODEC_NVENC_H265:
         case HB_VCODEC_NVENC_H264:
-            w = hb_get_work(h, WORK_ENCNVENC);
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_H264;
+            break;
+        case HB_VCODEC_NVENC_H265:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_HEVC;
             break;
         case HB_VCODEC_THEORA:
             w = hb_get_work(h, WORK_ENCTHEORA);

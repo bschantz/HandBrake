@@ -48,8 +48,8 @@ int  encavcodecInit( hb_work_object_t *, hb_job_t * );
 int  encavcodecWork( hb_work_object_t *, hb_buffer_t **, hb_buffer_t ** );
 void encavcodecClose( hb_work_object_t * );
 
-static int apply_encoder_preset(int vcodec, AVDictionary ** av_opts,
-                                const char * preset);
+static int apply_encoder_preset(int vcodec, AVCodecContext * context,
+                                AVDictionary ** av_opts, const char * preset);
 
 hb_work_object_t hb_encavcodec =
 {
@@ -63,6 +63,26 @@ hb_work_object_t hb_encavcodec =
 static const char * const vpx_preset_names[] =
 {
     "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", NULL
+};
+
+static const char * const h26x_nvenc_preset_names[] =
+{
+    "losslesshp", "lossless", "llhp", "llhq", "ll", "bd", "hq", "hp", "fast", "medium", "slow", "default", NULL
+};
+
+static const char * const h264_nvenc_profile_names[] =
+{
+    "auto", "baseline", "main", "high", "high444p", NULL 
+};
+
+static const char * const h265_nvenc_profile_names[] =
+{
+    "auto", "main", "main10", "rext", NULL 
+};
+
+static const char * const h26x_nvenc_level_names[] =
+{
+    "auto", "1", "2", "3", "4", "5", NULL
 };
 
 int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
@@ -101,6 +121,16 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         {
             hb_log("encavcodecInit: VP9 encoder");
         } break;
+        case AV_CODEC_ID_H264:
+        {
+            codec = avcodec_find_encoder_by_name("h264_nvenc");
+            hb_log("encavcodecInit: H.264 encoder");
+        } break;
+        case AV_CODEC_ID_HEVC:
+        {
+            codec = avcodec_find_encoder_by_name("hevc_nvenc");
+            hb_log("encavcodecInit: HEVC encoder");
+        } break;
         default:
         {
             hb_error("encavcodecInit: unsupported encoder!");
@@ -109,7 +139,11 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
     }
 
-    codec = avcodec_find_encoder( w->codec_param  );
+    if( !codec ) {
+        codec = avcodec_find_encoder( w->codec_param  );
+        hb_log("encavcodecInit: default encoder, found %d", NULL!=codec);
+    }
+
     if( !codec )
     {
         hb_log( "encavcodecInit: avcodec_find_encoder "
@@ -196,7 +230,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     }
 
     AVDictionary * av_opts = NULL;
-    if (apply_encoder_preset(job->vcodec, &av_opts, job->encoder_preset))
+    if (apply_encoder_preset(job->vcodec, context, &av_opts, job->encoder_preset))
     {
         av_free( context );
         av_dict_free( &av_opts );
@@ -708,14 +742,17 @@ static int apply_vpx_preset(AVDictionary ** av_opts, const char * preset)
     return 0;
 }
 
-static int apply_encoder_preset(int vcodec, AVDictionary ** av_opts,
-                                const char * preset)
+static int apply_encoder_preset(int vcodec, AVCodecContext * context, 
+                                AVDictionary ** av_opts, const char * preset)
 {
     switch (vcodec)
     {
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
             return apply_vpx_preset(av_opts, preset);
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
+            av_dict_set(av_opts, "preset", preset, 0);
         default:
             break;
     }
@@ -730,8 +767,49 @@ const char* const* hb_av_preset_get_names(int encoder)
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
             return vpx_preset_names;
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
+            return h26x_nvenc_preset_names;
+        default:
+            return NULL;
+    }
+}
+const char* const* hb_av_profile_get_names(int encoder)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_NVENC_H264:
+            return h264_nvenc_profile_names;
+        case HB_VCODEC_NVENC_H265:
+            return h265_nvenc_profile_names;
 
         default:
             return NULL;
+    }
+}
+
+const char* const* hb_av_level_get_names(int encoder)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_NVENC_H264:
+        case HB_VCODEC_NVENC_H265:
+            return h26x_nvenc_level_names;
+        default:
+            return NULL;
+    }
+}
+
+int hb_av_encoder_present(int encoder)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_NVENC_H264:
+            return NULL != avcodec_find_encoder_by_name("h264_nvenc");
+        case HB_VCODEC_NVENC_H265:
+            return NULL != avcodec_find_encoder_by_name("hevc_nvenc");
+
+        default:
+            return 0;
     }
 }
